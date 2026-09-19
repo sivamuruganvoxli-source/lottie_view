@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lottie JSON Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        header {
+            padding: 24px 32px;
+            background: rgba(255,255,255,0.04);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #7c9cff, #ff7cb0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        header .count { font-size: 13px; color: #9aa0b5; }
+        .layout {
+            display: flex;
+            min-height: calc(100vh - 73px);
+        }
+        .sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            background: rgba(255,255,255,0.03);
+            border-right: 1px solid rgba(255,255,255,0.08);
+            padding: 16px;
+            overflow-y: auto;
+            max-height: calc(100vh - 73px);
+        }
+        .sidebar h2 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #9aa0b5;
+            margin-bottom: 12px;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background 0.15s;
+            border: 1px solid transparent;
+        }
+        .file-item:hover { background: rgba(255,255,255,0.06); }
+        .file-item.active {
+            background: rgba(124,156,255,0.15);
+            border-color: rgba(124,156,255,0.4);
+        }
+        .file-item .icon {
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .file-item .name {
+            font-size: 13px;
+            font-weight: 500;
+            word-break: break-all;
+        }
+        .file-item .meta {
+            font-size: 11px;
+            color: #9aa0b5;
+            margin-top: 2px;
+        }
+        .main {
+            flex: 1;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .stage {
+            width: 100%;
+            max-width: 480px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            aspect-ratio: 1 / 1;
+        }
+        #lottie { width: 100%; height: 100%; }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: #7c9cff;
+            color: #fff;
+        }
+        button:hover { filter: brightness(1.1); }
+        button.secondary { background: rgba(255,255,255,0.12); color: #e0e0e0; }
+        button.secondary:hover { background: rgba(255,255,255,0.2); }
+        .info {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #9aa0b5;
+            max-width: 480px;
+        }
+        .info strong { color: #e0e0e0; }
+        .empty {
+            text-align: center;
+            color: #9aa0b5;
+            padding: 40px;
+        }
+        .error {
+            color: #ff7c7c;
+            font-size: 13px;
+            margin-top: 12px;
+            text-align: center;
+        }
+        @media (max-width: 720px) {
+            .layout { flex-direction: column; }
+            .sidebar { width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎬 Lottie JSON Viewer</h1>
+        <span class="count" id="fileCount">Loading…</span>
+    </header>
+    <div class="layout">
+        <aside class="sidebar">
+            <h2>Animations</h2>
+            <div id="fileList"></div>
+        </aside>
+        <main class="main">
+            <div class="stage">
+                <div id="lottie"></div>
+            </div>
+            <div class="controls">
+                <button onclick="play()">▶ Play</button>
+                <button class="secondary" onclick="pause()">⏸ Pause</button>
+                <button class="secondary" onclick="reset()">↻ Reset</button>
+                <button class="secondary" onclick="toggleLoop()">🔁 Loop: On</button>
+            </div>
+            <div class="info" id="info">Select an animation from the list.</div>
+            <div class="error" id="error"></div>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+    <script>
+        let animation = null;
+        let loop = true;
+        let currentFile = null;
+
+        // List of Lottie JSON files in this folder.
+        // Auto-detected from the server's /api/files endpoint, so any .json
+        // file dropped into the folder appears here automatically.
+        let FILES = [];
+
+        const fileListEl = document.getElementById('fileList');
+        const infoEl = document.getElementById('info');
+        const errorEl = document.getElementById('error');
+
+        function renderList() {
+            fileListEl.innerHTML = '';
+            document.getElementById('fileCount').textContent = FILES.length + ' animation' + (FILES.length === 1 ? '' : 's');
+            FILES.forEach((file, i) => {
+                const item = document.createElement('div');
+                item.className = 'file-item' + (i === 0 ? ' active' : '');
+                item.innerHTML = `
+                    <div class="icon">🎞️</div>
+                    <div>
+                        <div class="name">${file}</div>
+                        <div class="meta">Lottie JSON</div>
+                    </div>
+                `;
+                item.onclick = () => selectFile(file, item);
+                fileListEl.appendChild(item);
+            });
+        }
+
+        function loadFileList() {
+            fetch('/api/files')
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(files => {
+                    FILES = files;
+                    renderList();
+                    const first = document.querySelector('.file-item');
+                    if (first) first.click();
+                })
+                .catch(err => {
+                    errorEl.textContent = 'Could not load file list: ' + err.message;
+                });
+        }
+
+        function selectFile(file, item) {
+            errorEl.textContent = '';
+            document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+            if (item) item.classList.add('active');
+            currentFile = file;
+            infoEl.innerHTML = `<strong>${file}</strong> — loading…`;
+            fetch(file)
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(data => {
+                    loadAnimation(data);
+                    infoEl.innerHTML = `<strong>${file}</strong><br>` +
+                        `${(data.op - data.ip) / data.fr}s • ${data.fr} FPS • ${data.w}×${data.h}`;
+                })
+                .catch(err => {
+                    errorEl.textContent = 'Failed to load ' + file + ': ' + err.message;
+                    infoEl.textContent = '';
+                });
+        }
+
+        function loadAnimation(data) {
+            if (animation) animation.destroy();
+            animation = lottie.loadAnimation({
+                container: document.getElementById('lottie'),
+                renderer: 'svg',
+                loop: loop,
+                autoplay: true,
+                animationData: data
+            });
+        }
+
+        function play() { animation && animation.play(); }
+        function pause() { animation && animation.pause(); }
+        function reset() { animation && animation.goToAndStop(0, true); animation && animation.play(); }
+        function toggleLoop() {
+            loop = !loop;
+            document.querySelectorAll('.controls button')[3].textContent = '🔁 Loop: ' + (loop ? 'On' : 'Off');
+            if (animation) animation.loop = loop;
+        }
+
+        loadFileList();
+    </script>
+</body>
+</html>
