@@ -1,0 +1,21 @@
+{
+  "name": "lottie-view",
+  "version": "1.0.0",
+  "description": "Lottie Upload & Preview - A simple tool to preview Lottie animations",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve .",
+    "build": "echo 'Static HTML project - no build needed'",
+    "lint": "echo 'No linter configured'"
+  },
+  "keywords": [
+    "lottie",
+    "animation",
+    "preview"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vercel/analytics": "^1.1.1"
+  }
+}
